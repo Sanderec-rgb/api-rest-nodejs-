@@ -6,6 +6,7 @@
  */
 
 const app = require('./src/app');
+const { inicializarBaseDatos } = require('./src/config/database');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 3000;
@@ -22,24 +23,49 @@ process.on('unhandledRejection', (error) => {
     process.exit(1);
 });
 
-// Iniciar servidor
-const server = app.listen(PORT, () => {
-    console.log('=================================');
-    console.log('🚀 API REST - Sistema de Películas');
-    console.log('=================================');
-    console.log(`📡 Servidor: http://localhost:${PORT}`);
-    console.log(`🔧 Entorno: ${NODE_ENV}`);
-    console.log(`📚 Documentación: http://localhost:${PORT}/api-docs`);
-    console.log('=================================');
-});
+/**
+ * Función principal para iniciar el servidor
+ * Inicializa la base de datos antes de arrancar el servidor
+ */
+async function startServer() {
+    try {
+        console.log('=================================');
+        console.log('🚀 API REST - Sistema de Películas');
+        console.log('=================================');
+        console.log('🔧 Inicializando sistema...');
+        
+        // Inicializar base de datos (crea tablas y datos si no existen)
+        await inicializarBaseDatos();
+        console.log('✅ Base de datos lista');
+        
+        // Iniciar servidor
+        const server = app.listen(PORT, () => {
+            console.log(`📡 Servidor: http://localhost:${PORT}`);
+            console.log(`🔧 Entorno: ${NODE_ENV}`);
+            console.log(`📚 Documentación: http://localhost:${PORT}/api-docs`);
+            console.log('=================================');
+            console.log('✨ Servidor listo para recibir peticiones');
+        });
+        
+        // Manejo de cierre graceful
+        process.on('SIGTERM', () => {
+            console.log('🛑 Recibida señal SIGTERM. Cerrando servidor...');
+            server.close(() => {
+                console.log('✅ Servidor cerrado correctamente');
+                process.exit(0);
+            });
+        });
+        
+        return server;
+        
+    } catch (error) {
+        console.error('❌ Error al iniciar el servidor:', error.message);
+        console.error('💡 Verifica la conexión a la base de datos');
+        process.exit(1);
+    }
+}
 
-// Manejo de cierre graceful
-process.on('SIGTERM', () => {
-    console.log('🛑 Recibida señal SIGTERM. Cerrando servidor...');
-    server.close(() => {
-        console.log('✅ Servidor cerrado correctamente');
-        process.exit(0);
-    });
-});
+// Iniciar la aplicación
+startServer();
 
-module.exports = server;
+module.exports = startServer;
