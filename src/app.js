@@ -31,6 +31,46 @@ app.use((req, res, next) => {
     next();
 });
 
+// ============================================
+// ENDPOINT DE DIAGNÓSTICO (AGREGADO)
+// ============================================
+app.get('/api/test-db', async (req, res) => {
+    try {
+        const pool = require('./config/database');
+        const result = await pool.query(`
+            SELECT 
+                NOW() as hora,
+                (SELECT COUNT(*) FROM genero) as total_generos,
+                (SELECT COUNT(*) FROM director) as total_directores,
+                (SELECT COUNT(*) FROM productora) as total_productoras,
+                (SELECT COUNT(*) FROM tipo) as total_tipos,
+                (SELECT COUNT(*) FROM media) as total_media
+        `);
+        res.json({
+            success: true,
+            message: '✅ Conexión exitosa a PostgreSQL',
+            data: result.rows[0],
+            env: {
+                DB_HOST: process.env.DB_HOST,
+                DB_USER: process.env.DB_USER,
+                DB_NAME: process.env.DB_NAME,
+                DB_PORT: process.env.DB_PORT,
+                NODE_ENV: process.env.NODE_ENV
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error en test-db:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error de conexión a base de datos',
+            error: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+    }
+});
+// ============================================
+
 // Rutas de la API
 app.use('/api/generos', generoRoutes);
 app.use('/api/directores', directorRoutes);
@@ -140,7 +180,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Manejo de rutas no encontradas - CORREGIDO
+// Manejo de rutas no encontradas
 app.use((req, res) => {
     res.status(404).json({
         success: false,
