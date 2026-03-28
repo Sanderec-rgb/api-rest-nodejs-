@@ -1,15 +1,38 @@
 /**
- * Modelo de datos - Operaciones con la base de datos
+ * Modelo de datos - Operaciones con la base de datos (PostgreSQL)
  */
 
 const pool = require('../config/database');
 
 class Database {
-    // Método genérico para ejecutar consultas
+    // Método genérico para ejecutar consultas (adaptado para PostgreSQL)
     static async executeQuery(sql, params = []) {
         try {
-            const [rows] = await pool.execute(sql, params);
-            return rows;
+            // PostgreSQL usa query, no execute
+            const result = await pool.query(sql, params);
+            return result.rows;
+        } catch (error) {
+            console.error('Error en consulta SQL:', error);
+            throw new Error(`Error en base de datos: ${error.message}`);
+        }
+    }
+
+    // Método para INSERT que devuelve el ID insertado
+    static async executeInsert(sql, params = []) {
+        try {
+            const result = await pool.query(sql, params);
+            return result.rows[0]?.id || null;
+        } catch (error) {
+            console.error('Error en consulta SQL:', error);
+            throw new Error(`Error en base de datos: ${error.message}`);
+        }
+    }
+
+    // Método para UPDATE/DELETE que devuelve filas afectadas
+    static async executeUpdate(sql, params = []) {
+        try {
+            const result = await pool.query(sql, params);
+            return result.rowCount;
         } catch (error) {
             console.error('Error en consulta SQL:', error);
             throw new Error(`Error en base de datos: ${error.message}`);
@@ -19,157 +42,121 @@ class Database {
     // ==================== MÓDULO GÉNERO ====================
     static async getAllGeneros() {
         return await this.executeQuery(
-            'SELECT id, nombre, estado, fecha_creacion FROM genero WHERE estado = true ORDER BY nombre'
+            'SELECT id, nombre, estado, fecha_creacion FROM genero WHERE estado = 1 ORDER BY nombre'
         );
     }
 
     static async getGeneroById(id) {
         const results = await this.executeQuery(
-            'SELECT id, nombre, estado, fecha_creacion FROM genero WHERE id = ? AND estado = true',
+            'SELECT id, nombre, estado, fecha_creacion FROM genero WHERE id = $1 AND estado = 1',
             [id]
         );
         return results[0];
     }
 
     static async createGenero(genero) {
-        const result = await this.executeQuery(
-            'INSERT INTO genero (nombre) VALUES (?)',
-            [genero.nombre]
-        );
-        return result.insertId;
+        const sql = 'INSERT INTO genero (nombre) VALUES ($1) RETURNING id';
+        return await this.executeInsert(sql, [genero.nombre]);
     }
 
     static async updateGenero(id, genero) {
-        const result = await this.executeQuery(
-            'UPDATE genero SET nombre = ? WHERE id = ?',
-            [genero.nombre, id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE genero SET nombre = $1, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $2';
+        return await this.executeUpdate(sql, [genero.nombre, id]);
     }
 
     static async deleteGenero(id) {
-        const result = await this.executeQuery(
-            'UPDATE genero SET estado = false WHERE id = ?',
-            [id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE genero SET estado = 0 WHERE id = $1';
+        return await this.executeUpdate(sql, [id]);
     }
 
     // ==================== MÓDULO DIRECTOR ====================
     static async getAllDirectores() {
         return await this.executeQuery(
-            'SELECT id, nombres, apellidos, nacionalidad, estado, fecha_creacion FROM director WHERE estado = true ORDER BY apellidos, nombres'
+            'SELECT id, nombres, apellidos, nacionalidad, estado, fecha_creacion FROM director WHERE estado = 1 ORDER BY apellidos, nombres'
         );
     }
 
     static async getDirectorById(id) {
         const results = await this.executeQuery(
-            'SELECT id, nombres, apellidos, nacionalidad, estado, fecha_creacion FROM director WHERE id = ? AND estado = true',
+            'SELECT id, nombres, apellidos, nacionalidad, estado, fecha_creacion FROM director WHERE id = $1 AND estado = 1',
             [id]
         );
         return results[0];
     }
 
     static async createDirector(director) {
-        const result = await this.executeQuery(
-            'INSERT INTO director (nombres, apellidos, nacionalidad) VALUES (?, ?, ?)',
-            [director.nombres, director.apellidos, director.nacionalidad]
-        );
-        return result.insertId;
+        const sql = 'INSERT INTO director (nombres, apellidos, nacionalidad) VALUES ($1, $2, $3) RETURNING id';
+        return await this.executeInsert(sql, [director.nombres, director.apellidos, director.nacionalidad]);
     }
 
     static async updateDirector(id, director) {
-        const result = await this.executeQuery(
-            'UPDATE director SET nombres = ?, apellidos = ?, nacionalidad = ? WHERE id = ?',
-            [director.nombres, director.apellidos, director.nacionalidad, id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE director SET nombres = $1, apellidos = $2, nacionalidad = $3, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $4';
+        return await this.executeUpdate(sql, [director.nombres, director.apellidos, director.nacionalidad, id]);
     }
 
     static async deleteDirector(id) {
-        const result = await this.executeQuery(
-            'UPDATE director SET estado = false WHERE id = ?',
-            [id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE director SET estado = 0 WHERE id = $1';
+        return await this.executeUpdate(sql, [id]);
     }
 
     // ==================== MÓDULO PRODUCTORA ====================
     static async getAllProductoras() {
         return await this.executeQuery(
-            'SELECT id, nombre, sede_social, estado, fecha_creacion FROM productora WHERE estado = true ORDER BY nombre'
+            'SELECT id, nombre, sede_social, estado, fecha_creacion FROM productora WHERE estado = 1 ORDER BY nombre'
         );
     }
 
     static async getProductoraById(id) {
         const results = await this.executeQuery(
-            'SELECT id, nombre, sede_social, estado, fecha_creacion FROM productora WHERE id = ? AND estado = true',
+            'SELECT id, nombre, sede_social, estado, fecha_creacion FROM productora WHERE id = $1 AND estado = 1',
             [id]
         );
         return results[0];
     }
 
     static async createProductora(productora) {
-        const result = await this.executeQuery(
-            'INSERT INTO productora (nombre, sede_social) VALUES (?, ?)',
-            [productora.nombre, productora.sede_social]
-        );
-        return result.insertId;
+        const sql = 'INSERT INTO productora (nombre, sede_social) VALUES ($1, $2) RETURNING id';
+        return await this.executeInsert(sql, [productora.nombre, productora.sede_social]);
     }
 
     static async updateProductora(id, productora) {
-        const result = await this.executeQuery(
-            'UPDATE productora SET nombre = ?, sede_social = ? WHERE id = ?',
-            [productora.nombre, productora.sede_social, id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE productora SET nombre = $1, sede_social = $2, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $3';
+        return await this.executeUpdate(sql, [productora.nombre, productora.sede_social, id]);
     }
 
     static async deleteProductora(id) {
-        const result = await this.executeQuery(
-            'UPDATE productora SET estado = false WHERE id = ?',
-            [id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE productora SET estado = 0 WHERE id = $1';
+        return await this.executeUpdate(sql, [id]);
     }
 
     // ==================== MÓDULO TIPO ====================
     static async getAllTipos() {
         return await this.executeQuery(
-            'SELECT id, nombre, estado, fecha_creacion FROM tipo WHERE estado = true ORDER BY nombre'
+            'SELECT id, nombre, estado, fecha_creacion FROM tipo WHERE estado = 1 ORDER BY nombre'
         );
     }
 
     static async getTipoById(id) {
         const results = await this.executeQuery(
-            'SELECT id, nombre, estado, fecha_creacion FROM tipo WHERE id = ? AND estado = true',
+            'SELECT id, nombre, estado, fecha_creacion FROM tipo WHERE id = $1 AND estado = 1',
             [id]
         );
         return results[0];
     }
 
     static async createTipo(tipo) {
-        const result = await this.executeQuery(
-            'INSERT INTO tipo (nombre) VALUES (?)',
-            [tipo.nombre]
-        );
-        return result.insertId;
+        const sql = 'INSERT INTO tipo (nombre) VALUES ($1) RETURNING id';
+        return await this.executeInsert(sql, [tipo.nombre]);
     }
 
     static async updateTipo(id, tipo) {
-        const result = await this.executeQuery(
-            'UPDATE tipo SET nombre = ? WHERE id = ?',
-            [tipo.nombre, id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE tipo SET nombre = $1, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = $2';
+        return await this.executeUpdate(sql, [tipo.nombre, id]);
     }
 
     static async deleteTipo(id) {
-        const result = await this.executeQuery(
-            'UPDATE tipo SET estado = false WHERE id = ?',
-            [id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE tipo SET estado = 0 WHERE id = $1';
+        return await this.executeUpdate(sql, [id]);
     }
 
     // ==================== MÓDULO MEDIA ====================
@@ -187,7 +174,7 @@ class Database {
             LEFT JOIN director d ON m.id_director = d.id
             LEFT JOIN productora p ON m.id_productora = p.id
             LEFT JOIN tipo t ON m.id_tipo = t.id
-            WHERE m.estado = true
+            WHERE m.estado = 1
             ORDER BY m.fecha_creacion DESC
         `);
     }
@@ -206,70 +193,67 @@ class Database {
             LEFT JOIN director d ON m.id_director = d.id
             LEFT JOIN productora p ON m.id_productora = p.id
             LEFT JOIN tipo t ON m.id_tipo = t.id
-            WHERE m.id = ? AND m.estado = true
+            WHERE m.id = $1 AND m.estado = 1
         `, [id]);
         return results[0];
     }
 
     static async createMedia(media) {
-        const result = await this.executeQuery(
-            `INSERT INTO media 
+        const sql = `
+            INSERT INTO media 
             (serial, titulo, sinopsis, url_pelicula, anio_estreno, 
              id_genero, id_director, id_productora, id_tipo) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                media.serial, 
-                media.titulo, 
-                media.sinopsis || null, 
-                media.url_pelicula || null, 
-                media.anio_estreno || null,
-                media.id_genero || null, 
-                media.id_director || null, 
-                media.id_productora || null, 
-                media.id_tipo || null
-            ]
-        );
-        return result.insertId;
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id
+        `;
+        return await this.executeInsert(sql, [
+            media.serial, 
+            media.titulo, 
+            media.sinopsis || null, 
+            media.url_pelicula || null, 
+            media.anio_estreno || null,
+            media.id_genero || null, 
+            media.id_director || null, 
+            media.id_productora || null, 
+            media.id_tipo || null
+        ]);
     }
 
     static async updateMedia(id, media) {
-        const result = await this.executeQuery(
-            `UPDATE media 
-             SET serial = ?, titulo = ?, sinopsis = ?, url_pelicula = ?, 
-                 anio_estreno = ?, id_genero = ?, id_director = ?, 
-                 id_productora = ?, id_tipo = ?
-             WHERE id = ?`,
-            [
-                media.serial, 
-                media.titulo, 
-                media.sinopsis, 
-                media.url_pelicula, 
-                media.anio_estreno,
-                media.id_genero, 
-                media.id_director, 
-                media.id_productora, 
-                media.id_tipo,
-                id
-            ]
-        );
-        return result.affectedRows;
+        const sql = `
+            UPDATE media 
+             SET serial = $1, titulo = $2, sinopsis = $3, url_pelicula = $4, 
+                 anio_estreno = $5, id_genero = $6, id_director = $7, 
+                 id_productora = $8, id_tipo = $9,
+                 fecha_actualizacion = CURRENT_TIMESTAMP
+             WHERE id = $10
+        `;
+        return await this.executeUpdate(sql, [
+            media.serial, 
+            media.titulo, 
+            media.sinopsis, 
+            media.url_pelicula, 
+            media.anio_estreno,
+            media.id_genero, 
+            media.id_director, 
+            media.id_productora, 
+            media.id_tipo,
+            id
+        ]);
     }
 
     static async deleteMedia(id) {
-        const result = await this.executeQuery(
-            'UPDATE media SET estado = false WHERE id = ?',
-            [id]
-        );
-        return result.affectedRows;
+        const sql = 'UPDATE media SET estado = 0 WHERE id = $1';
+        return await this.executeUpdate(sql, [id]);
     }
 
     // ==================== MÉTODOS AUXILIARES ====================
     static async verificarExistencia(tabla, id) {
-        const result = await this.executeQuery(
-            `SELECT id FROM ${tabla} WHERE id = ? AND estado = true`,
+        const results = await this.executeQuery(
+            `SELECT id FROM ${tabla} WHERE id = $1 AND estado = 1`,
             [id]
         );
-        return result.length > 0;
+        return results.length > 0;
     }
 }
 
