@@ -1,23 +1,30 @@
-const { Pool } = require('pg');
+const mysql = require('mysql2');
 require('dotenv').config();
 
-const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
+// Configuración para MySQL en XAMPP
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '', // XAMPP suele no tener contraseña
     database: process.env.DB_NAME,
-    ssl: { rejectUnauthorized: false }
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-pool.connect((err, client, release) => {
+// Convertimos el pool para usar Promesas (async/await)
+const promisePool = pool.promise();
+
+// Verificamos la conexión manualmente al arrancar
+pool.getConnection((err, connection) => {
     if (err) {
-        console.error('❌ Error al conectar a PostgreSQL:', err.message);
+        console.error('❌ Error al conectar a MySQL (XAMPP):', err.message);
     } else {
-        console.log('✅ Conexión a PostgreSQL establecida correctamente');
+        console.log('✅ Conexión a MySQL establecida correctamente');
         console.log(`📊 Base de datos: ${process.env.DB_NAME}`);
-        release();
+        connection.release(); // Importante liberar la conexión de prueba
     }
 });
 
-module.exports = pool;
+module.exports = promisePool;
