@@ -1,13 +1,11 @@
-/**
- * Controlador para el módulo de Media (Películas y Series)
- */
-
 const Database = require('../models/db');
 
 // Obtener todo el contenido multimedia
 exports.getAllMedia = async (req, res) => {
     try {
+        console.log('🎯 getAllMedia fue llamado');
         const media = await Database.getAllMedia();
+        console.log(`✅ Encontrados ${media.length} registros`);
         res.json({
             success: true,
             count: media.length,
@@ -67,7 +65,6 @@ exports.createMedia = async (req, res) => {
             id_productora, id_tipo 
         } = req.body;
 
-        // Validaciones básicas
         if (!serial || !titulo) {
             return res.status(400).json({
                 success: false,
@@ -75,32 +72,11 @@ exports.createMedia = async (req, res) => {
             });
         }
 
-        // Validar formato del serial (ej: MOV001, SER001)
-        const serialRegex = /^(MOV|SER|DOC)\d{3}$/;
-        if (!serialRegex.test(serial)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Formato de serial inválido. Debe ser MOV001, SER001, DOC001'
-            });
-        }
-
-        // Validar año si se proporciona
-        if (anio_estreno) {
-            const añoActual = new Date().getFullYear();
-            if (anio_estreno < 1888 || anio_estreno > añoActual + 5) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Año inválido. Debe estar entre 1888 y ${añoActual + 5}`
-                });
-            }
-        }
-
         const id = await Database.createMedia({
             serial, titulo, sinopsis, url_pelicula, anio_estreno,
             id_genero, id_director, id_productora, id_tipo
         });
 
-        // Obtener el registro recién creado para devolver todos los datos
         const nuevoMedia = await Database.getMediaById(id);
 
         res.status(201).json({
@@ -110,15 +86,6 @@ exports.createMedia = async (req, res) => {
         });
     } catch (error) {
         console.error('Error en createMedia:', error);
-        
-        // Manejar error de duplicado de serial
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({
-                success: false,
-                message: 'El serial ya existe, debe ser único'
-            });
-        }
-
         res.status(500).json({
             success: false,
             message: 'Error al crear el contenido multimedia',
@@ -140,7 +107,6 @@ exports.updateMedia = async (req, res) => {
             });
         }
 
-        // Verificar que el contenido existe
         const existe = await Database.getMediaById(id);
         if (!existe) {
             return res.status(404).json({
@@ -151,14 +117,6 @@ exports.updateMedia = async (req, res) => {
 
         const affectedRows = await Database.updateMedia(id, mediaData);
         
-        if (affectedRows === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'No se pudo actualizar el contenido'
-            });
-        }
-
-        // Obtener el contenido actualizado
         const mediaActualizado = await Database.getMediaById(id);
 
         res.json({
@@ -168,14 +126,6 @@ exports.updateMedia = async (req, res) => {
         });
     } catch (error) {
         console.error('Error en updateMedia:', error);
-        
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({
-                success: false,
-                message: 'El serial ya existe, debe ser único'
-            });
-        }
-
         res.status(500).json({
             success: false,
             message: 'Error al actualizar el contenido multimedia',
@@ -184,7 +134,7 @@ exports.updateMedia = async (req, res) => {
     }
 };
 
-// Eliminar contenido multimedia (borrado lógico)
+// Eliminar contenido multimedia
 exports.deleteMedia = async (req, res) => {
     try {
         const { id } = req.params;
@@ -196,7 +146,6 @@ exports.deleteMedia = async (req, res) => {
             });
         }
 
-        // Verificar que el contenido existe
         const existe = await Database.getMediaById(id);
         if (!existe) {
             return res.status(404).json({
@@ -206,13 +155,6 @@ exports.deleteMedia = async (req, res) => {
         }
 
         const affectedRows = await Database.deleteMedia(id);
-        
-        if (affectedRows === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'No se pudo eliminar el contenido'
-            });
-        }
 
         res.json({
             success: true,
@@ -228,7 +170,7 @@ exports.deleteMedia = async (req, res) => {
     }
 };
 
-// Obtener contenido por tipo (Películas o Series)
+// Obtener contenido por tipo
 exports.getMediaByTipo = async (req, res) => {
     try {
         const { tipo } = req.params;
