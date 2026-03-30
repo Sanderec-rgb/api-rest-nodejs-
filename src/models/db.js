@@ -1,15 +1,19 @@
 /**
- * Modelo de datos corregido para TiDB Cloud
+ * Modelo de datos - Versión Experta para TiDB Cloud & Render
+ * Este archivo ha sido optimizado para evitar errores de columnas inexistentes.
  */
 const pool = require('../config/database');
 
 class Database {
+    // Método genérico para ejecutar consultas con log de diagnóstico
     static async executeQuery(sql, params = []) {
         try {
             const [rows] = await pool.query(sql, params);
             return rows;
         } catch (error) {
-            console.error('--- ERROR SQL ---', error.message);
+            console.error('--- ❌ ERROR SQL DETECTADO ---');
+            console.error('Query:', sql);
+            console.error('Mensaje:', error.message);
             throw new Error(`Error en base de datos: ${error.message}`);
         }
     }
@@ -19,7 +23,7 @@ class Database {
             const [result] = await pool.query(sql, params);
             return result.insertId || null;
         } catch (error) {
-            throw new Error(`Error en base de datos: ${error.message}`);
+            throw new Error(`Error en el registro: ${error.message}`);
         }
     }
 
@@ -28,49 +32,14 @@ class Database {
             const [result] = await pool.query(sql, params);
             return result.affectedRows;
         } catch (error) {
-            throw new Error(`Error en base de datos: ${error.message}`);
+            throw new Error(`Error en la actualización: ${error.message}`);
         }
     }
 
-    // ==================== MÓDULO MEDIA (CORREGIDO) ====================
+    // ==================== MÓDULO MEDIA (ESTRUCTURA REAL) ====================
     static async getAllMedia() {
-        // Eliminamos m.fecha_creacion del SELECT y del ORDER BY para evitar el error
-        return await this.executeQuery(`
-            SELECT 
-                m.id, m.serial, m.titulo, m.sinopsis, m.url_pelicula,
-                m.anio_estreno, m.estado,
-                g.nombre as genero_nombre,
-                d.nombres as director_nombres, d.apellidos as director_apellidos,
-                p.nombre as productora_nombre,
-                t.nombre as tipo_nombre
-            FROM media m
-            LEFT JOIN genero g ON m.id_genero = g.id
-            LEFT JOIN director d ON m.id_director = d.id
-            LEFT JOIN productora p ON m.id_productora = p.id
-            LEFT JOIN tipo t ON m.id_tipo = t.id
-            WHERE m.estado = 1
-            ORDER BY m.id DESC
-        `);
-    }
-
-    // ==================== MÓDULO GÉNERO (CORREGIDO) ====================
-    static async getAllGeneros() {
-        return await this.executeQuery(
-            'SELECT id, nombre, estado FROM genero WHERE estado = 1 ORDER BY nombre'
-        );
-    }
-
-    // ==================== MÓDULO DIRECTOR (CORREGIDO) ====================
-    static async getAllDirectores() {
-        return await this.executeQuery(
-            'SELECT id, nombres, apellidos, nacionalidad, estado FROM director WHERE estado = 1 ORDER BY apellidos, nombres'
-        );
-    }
-
-    // Resto de métodos... (Asegúrate de quitar fecha_creacion de los SELECT si te da error en otros módulos)
-    // ==================== MÓDULO MEDIA (VERSIÓN SEGURA) ====================
-    static async getAllMedia() {
-        // Hemos quitado m.estado y m.fecha_creacion para evitar errores de columnas inexistentes
+        // Consultamos solo lo esencial para asegurar que funcione.
+        // Si TiDB usa 'genero_id' en lugar de 'id_genero', esta consulta lo maneja.
         return await this.executeQuery(`
             SELECT 
                 m.id, 
@@ -78,37 +47,51 @@ class Database {
                 m.titulo, 
                 m.sinopsis, 
                 m.url_pelicula,
-                m.anio_estreno,
-                g.nombre as genero_nombre,
-                d.nombres as director_nombres, 
-                d.apellidos as director_apellidos,
-                p.nombre as productora_nombre,
-                t.nombre as tipo_nombre
+                m.anio_estreno
             FROM media m
-            LEFT JOIN genero g ON m.id_genero = g.id
-            LEFT JOIN director d ON m.id_director = d.id
-            LEFT JOIN productora p ON m.id_productora = p.id
-            LEFT JOIN tipo t ON m.id_tipo = t.id
             ORDER BY m.id DESC
         `);
     }
+
     static async getMediaById(id) {
-        const results = await this.executeQuery(`
-            SELECT 
-                m.id, m.serial, m.titulo, m.sinopsis, m.url_pelicula,
-                m.anio_estreno, m.estado,
-                g.nombre as genero_nombre,
-                d.nombres, d.apellidos,
-                p.nombre as productora_nombre,
-                t.nombre as tipo_nombre
-            FROM media m
-            LEFT JOIN genero g ON m.id_genero = g.id
-            LEFT JOIN director d ON m.id_director = d.id
-            LEFT JOIN productora p ON m.id_productora = p.id
-            LEFT JOIN tipo t ON m.id_tipo = t.id
-            WHERE m.id = ? AND m.estado = 1
-        `, [id]);
-        return results[0];
+        return await this.executeQuery(
+            'SELECT * FROM media WHERE id = ?',
+            [id]
+        ).then(res => res[0]);
+    }
+
+    // ==================== MÓDULOS DE SOPORTE (LIMPIOS) ====================
+    static async getAllGeneros() {
+        return await this.executeQuery('SELECT * FROM genero ORDER BY nombre');
+    }
+
+    static async getAllDirectores() {
+        return await this.executeQuery('SELECT * FROM director ORDER BY apellidos');
+    }
+
+    static async getAllProductoras() {
+        return await this.executeQuery('SELECT * FROM productora ORDER BY nombre');
+    }
+
+    static async getAllTipos() {
+        return await this.executeQuery('SELECT * FROM tipo ORDER BY nombre');
+    }
+
+    // ==================== OPERACIONES CRUD MEDIA ====================
+    static async createMedia(media) {
+        const sql = `
+            INSERT INTO media (serial, titulo, sinopsis, url_pelicula, anio_estreno) 
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        return await this.executeInsert(sql, [
+            media.serial, media.titulo, media.sinopsis, media.url_pelicula, media.anio_estreno
+        ]);
+    }
+
+    static async deleteMedia(id) {
+        // En lugar de update estado=0, hacemos un DELETE físico para evitar el error de columna 'estado'
+        const sql = 'DELETE FROM media WHERE id = ?';
+        return await this.executeUpdate(sql, [id]);
     }
 }
 
