@@ -32,4 +32,4 @@ coverage/
 # Archivos de base de datos
 *.sql
 !database/init.sql
-*.db
+*.db".env" 
