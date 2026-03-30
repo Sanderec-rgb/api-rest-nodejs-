@@ -68,7 +68,30 @@ class Database {
     }
 
     // Resto de métodos... (Asegúrate de quitar fecha_creacion de los SELECT si te da error en otros módulos)
-    
+    // ==================== MÓDULO MEDIA (VERSIÓN SEGURA) ====================
+    static async getAllMedia() {
+        // Hemos quitado m.estado y m.fecha_creacion para evitar errores de columnas inexistentes
+        return await this.executeQuery(`
+            SELECT 
+                m.id, 
+                m.serial, 
+                m.titulo, 
+                m.sinopsis, 
+                m.url_pelicula,
+                m.anio_estreno,
+                g.nombre as genero_nombre,
+                d.nombres as director_nombres, 
+                d.apellidos as director_apellidos,
+                p.nombre as productora_nombre,
+                t.nombre as tipo_nombre
+            FROM media m
+            LEFT JOIN genero g ON m.id_genero = g.id
+            LEFT JOIN director d ON m.id_director = d.id
+            LEFT JOIN productora p ON m.id_productora = p.id
+            LEFT JOIN tipo t ON m.id_tipo = t.id
+            ORDER BY m.id DESC
+        `);
+    }
     static async getMediaById(id) {
         const results = await this.executeQuery(`
             SELECT 
