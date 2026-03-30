@@ -1,51 +1,57 @@
-/**
- * Archivo principal del servidor
- * API REST - Sistema de Gestión de Películas
- * Autor: SANDER ENRIQUE CAMARGO OROZCO 
- * Fecha: 2026
- */
-
 const app = require('./src/app');
 require('dotenv').config();
 
-// En Render, process.env.PORT es asignado automáticamente.
-// Usamos '0.0.0.0' para que el servicio sea accesible externamente.
-const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0'; 
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const PORT = parseInt(process.env.PORT) || 3000;
+const HOST = '0.0.0.0';
 
-// Manejo de errores no capturados (Global)
+// Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
-    console.error('❌ CRITICAL: Error no capturado:', error.message);
-    console.error(error.stack);
-    process.exit(1);
+    console.error('❌ Error no capturado:', error);
+    console.error('Stack:', error.stack);
+    // En producción, no hacer exit(1) inmediatamente
+    if (process.env.NODE_ENV === 'production') {
+        console.error('⚠️ Error no fatal, continuando...');
+    } else {
+        process.exit(1);
+    }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ CRITICAL: Promesa rechazada no manejada en:', promise, 'razón:', reason);
-    process.exit(1);
+    console.error('❌ Promesa rechazada no manejada:');
+    console.error('Razón:', reason);
+    console.error('Promesa:', promise);
 });
 
 console.log('=================================');
 console.log('🚀 API REST - Sistema de Películas');
 console.log('=================================');
-console.log(`📡 Intentando iniciar en: http://${HOST}:${PORT}`);
-console.log(`🔧 Entorno: ${NODE_ENV}`);
+console.log(`📡 Puerto: ${PORT}`);
+console.log(`🔧 Entorno: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🕐 Inicio: ${new Date().toISOString()}`);
 console.log('=================================');
 
-// Iniciar servidor especificando HOST y PORT para compatibilidad con la nube
+// Iniciar servidor
 const server = app.listen(PORT, HOST, () => {
-    console.log('✨ Servidor desplegado correctamente');
-    console.log(`✅ Acceso público listo en el puerto: ${PORT}`);
+    console.log(`✅ Servidor corriendo en http://${HOST}:${PORT}`);
+    console.log(`🌐 URL pública: ${process.env.RENDER_EXTERNAL_URL || 'No disponible'}`);
 });
 
-// Manejo de cierre Graceful (Para actualizaciones en Render sin interrumpir tráfico)
-process.on('SIGTERM', () => {
-    console.log('🛑 Recibida señal SIGTERM. Cerrando servidor de forma segura...');
+// Cierre graceful para Render
+const gracefulShutdown = () => {
+    console.log('🛑 Recibida señal de cierre. Cerrando servidor...');
     server.close(() => {
-        console.log('✅ Todos los procesos terminados. Servidor cerrado.');
+        console.log('✅ Servidor cerrado correctamente');
         process.exit(0);
     });
-});
+
+    // Forzar cierre después de 10 segundos
+    setTimeout(() => {
+        console.error('⚠️ Timeout de cierre, forzando salida');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 module.exports = server;
