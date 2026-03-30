@@ -1,20 +1,11 @@
-const express = require('express');
-const router = express.Router();
-const mediaController = require('../controllers/mediaController');
+const Database = require('../models/db');
 
-// IMPORTANTE: Las rutas específicas DEBEN ir ANTES que las rutas con parámetros
-// La ruta /tipo/:tipo debe estar ANTES de /:id
-
-// Rutas específicas (sin parámetros de ID)
-router.get('/tipo/:tipo', mediaController.getMediaByTipo);
-
-// Rutas con parámetro ID
-router.get('/:id', mediaController.getMediaById);
-router.put('/:id', mediaController.updateMedia);
-router.delete('/:id', mediaController.deleteMedia);
-
-// Rutas base
-router.get('/', mediaController.getAllMedia);
-router.post('/', mediaController.createMedia);
-
-module.exports = router;
+exports.getAllMedia = async (req, res) => {
+    try {
+        const media = await Database.getAllMedia();
+        res.json({ success: true, count: media.length, data: media });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
