@@ -22,7 +22,6 @@ class Database {
                 m.sinopsis,
                 m.url_pelicula,
                 m.anio_estreno,
-                m.estado,
                 m.fecha_creacion,
                 g.id AS genero_id,
                 g.nombre AS genero_nombre,
@@ -37,7 +36,6 @@ class Database {
             LEFT JOIN director d ON m.id_director = d.id
             LEFT JOIN productora p ON m.id_productora = p.id
             LEFT JOIN tipo t ON m.id_tipo = t.id
-            WHERE m.estado = 1
             ORDER BY m.id DESC
         `;
         return await this.query(sql);
@@ -52,7 +50,6 @@ class Database {
                 m.sinopsis,
                 m.url_pelicula,
                 m.anio_estreno,
-                m.estado,
                 m.fecha_creacion,
                 g.id AS genero_id,
                 g.nombre AS genero_nombre,
@@ -67,7 +64,7 @@ class Database {
             LEFT JOIN director d ON m.id_director = d.id
             LEFT JOIN productora p ON m.id_productora = p.id
             LEFT JOIN tipo t ON m.id_tipo = t.id
-            WHERE m.id = ? AND m.estado = 1
+            WHERE m.id = ?
         `;
         const rows = await this.query(sql, [id]);
         return rows[0] || null;
@@ -77,8 +74,8 @@ class Database {
         const sql = `
             INSERT INTO media (
                 serial, titulo, sinopsis, url_pelicula, anio_estreno,
-                id_genero, id_director, id_productora, id_tipo, estado
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                id_genero, id_director, id_productora, id_tipo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const [result] = await pool.execute(sql, [
             data.serial,
@@ -107,7 +104,7 @@ class Database {
                 id_director = ?,
                 id_productora = ?,
                 id_tipo = ?
-            WHERE id = ? AND estado = 1
+            WHERE id = ?
         `;
         const [result] = await pool.execute(sql, [
             data.serial,
@@ -125,7 +122,7 @@ class Database {
     }
 
     static async deleteMedia(id) {
-        const sql = 'UPDATE media SET estado = 0 WHERE id = ?';
+        const sql = 'DELETE FROM media WHERE id = ?';
         const [result] = await pool.execute(sql, [id]);
         return result.affectedRows;
     }
