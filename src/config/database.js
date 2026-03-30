@@ -1,146 +1,57 @@
-const pool = require('./database');
+const mysql = require('mysql2/promise');
+const dotenv = require('dotenv');
 
-class Database {
-    // Ejecutor de consultas con manejo de errores mejorado
-    static async executeQuery(sql, params = []) {
-        let connection;
-        try {
-            connection = await pool.getConnection();
-            const [rows] = await connection.query(sql, params);
-            return rows;
-        } catch (error) {
-            console.error('❌ Error en consulta SQL:', error.message);
-            console.error('SQL:', sql);
-            console.error('Params:', params);
-            throw new Error(`Error en base de datos: ${error.message}`);
-        } finally {
-            if (connection) connection.release();
-        }
-    }
+dotenv.config();
 
-    // Obtener todos los medios (SOLO columnas que existen)
-    static async getAllMedia() {
-        const sql = `
-            SELECT 
-                id, 
-                serial, 
-                titulo, 
-                sinopsis, 
-                url_pelicula, 
-                anio_estreno,
-                created_at,
-                updated_at
-            FROM media 
-            ORDER BY id DESC
-        `;
-        return await this.executeQuery(sql);
-    }
-
-    // Obtener medio por ID
-    static async getMediaById(id) {
-        const sql = `
-            SELECT 
-                id, 
-                serial, 
-                titulo, 
-                sinopsis, 
-                url_pelicula, 
-                anio_estreno,
-                created_at,
-                updated_at
-            FROM media 
-            WHERE id = ?
-        `;
-        const results = await this.executeQuery(sql, [id]);
-        return results[0] || null;
-    }
-
-    // Obtener catálogos
-    static async getAllGeneros() {
-        try {
-            return await this.executeQuery('SELECT * FROM genero ORDER BY nombre');
-        } catch (error) {
-            console.warn('⚠️ Error al obtener géneros:', error.message);
-            return [];
-        }
-    }
-
-    static async getAllDirectores() {
-        try {
-            return await this.executeQuery('SELECT * FROM director ORDER BY nombre');
-        } catch (error) {
-            console.warn('⚠️ Error al obtener directores:', error.message);
-            return [];
-        }
-    }
-
-    static async getAllProductoras() {
-        try {
-            return await this.executeQuery('SELECT * FROM productora ORDER BY nombre');
-        } catch (error) {
-            console.warn('⚠️ Error al obtener productoras:', error.message);
-            return [];
-        }
-    }
-
-    static async getAllTipos() {
-        try {
-            return await this.executeQuery('SELECT * FROM tipo ORDER BY nombre');
-        } catch (error) {
-            console.warn('⚠️ Error al obtener tipos:', error.message);
-            return [];
-        }
-    }
-
-    // Crear nuevo medio
-    static async createMedia(media) {
-        const sql = `
-            INSERT INTO media (
-                serial, 
-                titulo, 
-                sinopsis, 
-                url_pelicula, 
-                anio_estreno
-            ) VALUES (?, ?, ?, ?, ?)
-        `;
-        const [result] = await pool.query(sql, [
-            media.serial,
-            media.titulo,
-            media.sinopsis,
-            media.url_pelicula,
-            media.anio_estreno
-        ]);
-        return result.insertId;
-    }
-
-    // Actualizar medio existente
-    static async updateMedia(id, media) {
-        const sql = `
-            UPDATE media 
-            SET serial = ?, 
-                titulo = ?, 
-                sinopsis = ?, 
-                url_pelicula = ?, 
-                anio_estreno = ?
-            WHERE id = ?
-        `;
-        const [result] = await pool.query(sql, [
-            media.serial,
-            media.titulo,
-            media.sinopsis,
-            media.url_pelicula,
-            media.anio_estreno,
-            id
-        ]);
-        return result.affectedRows;
-    }
-
-    // Eliminar medio
-    static async deleteMedia(id) {
-        const sql = 'DELETE FROM media WHERE id = ?';
-        const [result] = await pool.query(sql, [id]);
-        return result.affectedRows;
-    }
+// Verificar variables de entorno
+if (!process.env.TIDB_HOST || !process.env.TIDB_USER || !process.env.TIDB_PASSWORD) {
+    console.error('❌ ERROR: Variables de entorno faltantes');
+    console.error('TIDB_HOST:', process.env.TIDB_HOST ? '✓ Configurado' : '✗ Faltante');
+    console.error('TIDB_USER:', process.env.TIDB_USER ? '✓ Configurado' : '✗ Faltante');
+    console.error('TIDB_PASSWORD:', process.env.TIDB_PASSWORD ? '✓ Configurado' : '✗ Faltante');
+    console.error('TIDB_DATABASE:', process.env.TIDB_DATABASE ? '✓ Configurado' : '✗ Faltante');
+    process.exit(1);
 }
 
-module.exports = Database;
+// Crear pool directamente con la versión de promesas
+const pool = mysql.createPool({
+    host: process.env.TIDB_HOST,
+    user: process.env.TIDB_USER,
+    password: process.env.TIDB_PASSWORD,
+    database: process.env.TIDB_DATABASE,
+    port: parseInt(process.env.TIDB_PORT) || 4000,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    ssl: {
+        minVersion: 'TLSv1.2',
+        rejectUnauthorized: true
+    },
+    connectTimeout: 10000,
+    acquireTimeout: 10000
+});
+
+// Probar conexión
+const testConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        console.log('✅ Conexión a base de datos exitosa (SSL activado)');
+        
+        const [rows] = await connection.query('SELECT VERSION() as version, DATABASE() as database');
+        console.log(`📊 Versión: ${rows[0].version}`);
+        console.log(`📊 Base de datos: ${rows[0].database}`);
+        
+        connection.release();
+    } catch (error) {
+        console.error('❌ Error de conexión a BD:', error.message);
+        console.error('Detalles completos:', error);
+        process.exit(1);
+    }
+};
+
+testConnection();
+
+// Exportar el pool directamente (ya es una promesa)
+module.exports = pool;

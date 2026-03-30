@@ -32,30 +32,34 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// ENDPOINT DE DIAGNÓSTICO (AGREGADO)
+// ENDPOINT DE DIAGNÓSTICO CORREGIDO
 // ============================================
 app.get('/api/test-db', async (req, res) => {
     try {
+        // Importar pool correctamente
         const pool = require('./config/database');
-        const result = await pool.query(`
+        
+        // Usar sintaxis de MySQL/TiDB (no PostgreSQL)
+        const [rows] = await pool.query(`
             SELECT 
                 NOW() as hora,
-                (SELECT COUNT(*) FROM genero) as total_generos,
-                (SELECT COUNT(*) FROM director) as total_directores,
-                (SELECT COUNT(*) FROM productora) as total_productoras,
-                (SELECT COUNT(*) FROM tipo) as total_tipos,
-                (SELECT COUNT(*) FROM media) as total_media
+                (SELECT COUNT(*) FROM genero WHERE estado = 1) as total_generos,
+                (SELECT COUNT(*) FROM director WHERE estado = 1) as total_directores,
+                (SELECT COUNT(*) FROM productora WHERE estado = 1) as total_productoras,
+                (SELECT COUNT(*) FROM tipo WHERE estado = 1) as total_tipos,
+                (SELECT COUNT(*) FROM media WHERE estado = 1) as total_media
         `);
+        
         res.json({
             success: true,
-            message: '✅ Conexión exitosa a PostgreSQL',
-            data: result.rows[0],
+            message: '✅ Conexión exitosa a TiDB/MySQL',
+            data: rows[0], // En MySQL/TiDB es rows[0], no result.rows
             env: {
-                DB_HOST: process.env.DB_HOST,
-                DB_USER: process.env.DB_USER,
-                DB_NAME: process.env.DB_NAME,
-                DB_PORT: process.env.DB_PORT,
-                NODE_ENV: process.env.NODE_ENV
+                TIDB_HOST: process.env.TIDB_HOST ? '✓ Configurado' : '✗ Faltante',
+                TIDB_USER: process.env.TIDB_USER ? '✓ Configurado' : '✗ Faltante',
+                TIDB_DATABASE: process.env.TIDB_DATABASE ? '✓ Configurado' : '✗ Faltante',
+                TIDB_PORT: process.env.TIDB_PORT || 4000,
+                NODE_ENV: process.env.NODE_ENV || 'development'
             }
         });
     } catch (error) {
@@ -65,18 +69,21 @@ app.get('/api/test-db', async (req, res) => {
             message: 'Error de conexión a base de datos',
             error: error.message,
             code: error.code,
-            stack: error.stack
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
 // ============================================
 
-// Rutas de la API
-app.use('/api/generos', generoRoutes);
-app.use('/api/directores', directorRoutes);
-app.use('/api/productoras', productoraRoutes);
-app.use('/api/tipos', tipoRoutes);
-app.use('/api/media', mediaRoutes);
+// Rutas de la API (NOTA: Ya están montadas con sus propias rutas base)
+// En tus archivos de rutas, ya tienes definido, por ejemplo:
+// generoRoutes: router.get('/') -> /api/generos
+// Así que aquí solo montamos en /api
+app.use('/api', generoRoutes);
+app.use('/api', directorRoutes);
+app.use('/api', productoraRoutes);
+app.use('/api', tipoRoutes);
+app.use('/api', mediaRoutes);
 
 // Ruta de bienvenida
 app.get('/', (req, res) => {
@@ -112,6 +119,16 @@ app.get('/', (req, res) => {
                 url: '/api/media',
                 metodos: ['GET', 'POST', 'PUT', 'DELETE'],
                 descripcion: 'Gestión de películas y series'
+            },
+            diagnostico: {
+                url: '/api/test-db',
+                metodo: 'GET',
+                descripcion: 'Prueba de conexión a base de datos'
+            },
+            health: {
+                url: '/api/health',
+                metodo: 'GET',
+                descripcion: 'Estado del servicio'
             }
         }
     });
@@ -123,7 +140,7 @@ app.get('/api-docs', (req, res) => {
         success: true,
         title: 'Documentación de la API',
         description: 'Endpoints disponibles para pruebas con Postman',
-        base_url: `http://localhost:${process.env.PORT || 3000}`,
+        base_url: `https://api-rest-nodejs-5.onrender.com`,
         ejemplos: {
             crear_genero: {
                 method: 'POST',
@@ -145,10 +162,10 @@ app.get('/api-docs', (req, res) => {
                 method: 'POST',
                 url: '/api/media',
                 body: {
-                    serial: "MOV001",
-                    titulo: "Inception",
-                    sinopsis: "Un ladrón que roba secretos corporativos...",
-                    anio_estreno: 2010,
+                    serial: "MOV099",
+                    titulo: "Nueva Película",
+                    sinopsis: "Sinopsis de prueba",
+                    anio_estreno: 2024,
                     id_genero: 1,
                     id_director: 1,
                     id_productora: 1,
@@ -159,14 +176,15 @@ app.get('/api-docs', (req, res) => {
     });
 });
 
-// Ruta de prueba de conexión
+// Ruta de prueba de conexión (health check)
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         status: 'OK',
         timestamp: new Date(),
         uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || 'development',
+        database: 'Connected'
     });
 });
 
@@ -191,7 +209,10 @@ app.use((req, res) => {
             directores: '/api/directores',
             productoras: '/api/productoras',
             tipos: '/api/tipos',
-            media: '/api/media'
+            media: '/api/media',
+            diagnostico: '/api/test-db',
+            health: '/api/health',
+            documentacion: '/api-docs'
         }
     });
 });
