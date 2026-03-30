@@ -1,9 +1,8 @@
 const Database = require('../models/db');
 
-// Obtener todo el contenido multimedia
 exports.getAllMedia = async (req, res) => {
     try {
-        console.log('🎯 getAllMedia fue llamado');
+        console.log('🎯 GET /api/media');
         const media = await Database.getAllMedia();
         console.log(`✅ Encontrados ${media.length} registros`);
         res.json({
@@ -21,18 +20,11 @@ exports.getAllMedia = async (req, res) => {
     }
 };
 
-// Obtener contenido multimedia por ID
 exports.getMediaById = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`🎯 GET /api/media/${id}`);
         
-        if (!id || isNaN(id)) {
-            return res.status(400).json({
-                success: false,
-                message: 'ID inválido'
-            });
-        }
-
         const media = await Database.getMediaById(id);
         
         if (!media) {
@@ -56,15 +48,36 @@ exports.getMediaById = async (req, res) => {
     }
 };
 
-// Crear nuevo contenido multimedia
+exports.getMediaByTipo = async (req, res) => {
+    try {
+        const { tipo } = req.params;
+        console.log(`🎯 GET /api/media/tipo/${tipo}`);
+        const todoMedia = await Database.getAllMedia();
+        
+        const filtrado = todoMedia.filter(item => 
+            item.tipo_nombre && item.tipo_nombre.toLowerCase() === tipo.toLowerCase()
+        );
+
+        res.json({
+            success: true,
+            tipo: tipo,
+            count: filtrado.length,
+            data: filtrado
+        });
+    } catch (error) {
+        console.error('Error en getMediaByTipo:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al filtrar contenido por tipo',
+            error: error.message
+        });
+    }
+};
+
 exports.createMedia = async (req, res) => {
     try {
-        const { 
-            serial, titulo, sinopsis, url_pelicula, 
-            anio_estreno, id_genero, id_director, 
-            id_productora, id_tipo 
-        } = req.body;
-
+        const { serial, titulo, sinopsis, url_pelicula, anio_estreno, id_genero, id_director, id_productora, id_tipo } = req.body;
+        
         if (!serial || !titulo) {
             return res.status(400).json({
                 success: false,
@@ -94,18 +107,10 @@ exports.createMedia = async (req, res) => {
     }
 };
 
-// Actualizar contenido multimedia
 exports.updateMedia = async (req, res) => {
     try {
         const { id } = req.params;
         const mediaData = req.body;
-
-        if (!id || isNaN(id)) {
-            return res.status(400).json({
-                success: false,
-                message: 'ID inválido'
-            });
-        }
 
         const existe = await Database.getMediaById(id);
         if (!existe) {
@@ -115,8 +120,7 @@ exports.updateMedia = async (req, res) => {
             });
         }
 
-        const affectedRows = await Database.updateMedia(id, mediaData);
-        
+        await Database.updateMedia(id, mediaData);
         const mediaActualizado = await Database.getMediaById(id);
 
         res.json({
@@ -134,17 +138,9 @@ exports.updateMedia = async (req, res) => {
     }
 };
 
-// Eliminar contenido multimedia
 exports.deleteMedia = async (req, res) => {
     try {
         const { id } = req.params;
-
-        if (!id || isNaN(id)) {
-            return res.status(400).json({
-                success: false,
-                message: 'ID inválido'
-            });
-        }
 
         const existe = await Database.getMediaById(id);
         if (!existe) {
@@ -154,7 +150,7 @@ exports.deleteMedia = async (req, res) => {
             });
         }
 
-        const affectedRows = await Database.deleteMedia(id);
+        await Database.deleteMedia(id);
 
         res.json({
             success: true,
@@ -165,32 +161,6 @@ exports.deleteMedia = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error al eliminar el contenido multimedia',
-            error: error.message
-        });
-    }
-};
-
-// Obtener contenido por tipo
-exports.getMediaByTipo = async (req, res) => {
-    try {
-        const { tipo } = req.params;
-        const todoMedia = await Database.getAllMedia();
-        
-        const filtrado = todoMedia.filter(item => 
-            item.tipo_nombre && item.tipo_nombre.toLowerCase() === tipo.toLowerCase()
-        );
-
-        res.json({
-            success: true,
-            tipo: tipo,
-            count: filtrado.length,
-            data: filtrado
-        });
-    } catch (error) {
-        console.error('Error en getMediaByTipo:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error al filtrar contenido por tipo',
             error: error.message
         });
     }
